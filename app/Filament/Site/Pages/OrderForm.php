@@ -288,7 +288,8 @@ class OrderForm extends Page implements Forms\Contracts\HasForms
         */
         if ($data['payment_method'] === 'paygate') {
             $wallet          = env('PAYGATE_RECEIVE_ADDRESS');
-            $callback        = route('paygate.return');
+            $tracking        = Str::ulid()->toBase32();
+            $callback        = route('paygate.return',['tracking' => $tracking]);
             $amountFormatted = number_format($amount, 2, '.', '');
 
             // استفاده از BASE URL از .env
@@ -329,7 +330,7 @@ class OrderForm extends Page implements Forms\Contracts\HasForms
                 'email'         => $user->email,
                 'amount'        => $amount,
                 'status'        => 'pending',
-                'tracking_code' => Str::ulid()->toBase32(),
+                'tracking_code' => $tracking,
                 'service'       => $product->name,
                 'payment_instructions' => [
                     'provider'    => 'paygate',
