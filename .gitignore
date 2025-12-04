@@ -1,0 +1,15 @@
+/vendor/
+/node_modules/
+.env
+/public/storage
+/storage/*.key
+/storage/app/*
+/storage/framework/*
+/storage/logs/*
+!/storage/app/.gitignore
+!/storage/framework/.gitignore
+!/storage/logs/.gitignore
+.phpunit.result.cache
+composer.lock
+npm-debug.log
+yarn-error.log

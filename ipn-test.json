@@ -1,0 +1,14 @@
+{
+  "payment_id": "4815984279",
+  "payment_status": "finished",
+  "pay_address": "TQTmZFpePdG1NWTS842oApu6pK9cgicjR5",
+  "pay_amount": 24.929172,
+  "pay_currency": "usdttrc20",
+  "order_id": "110",
+  "price_amount": 25,
+  "price_currency": "usd"
+}
+
+ls ipn-test.json
+
+
