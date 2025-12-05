@@ -60,8 +60,8 @@ class RecentOrders extends BaseWidget
                 ->label('Status')
                 ->badge()
                 ->colors([
-                    'warning' => fn ($state) => $state === 'pending',
-                    'success' => fn ($state) => $state === 'success',
+                    'warning' => fn ($state) => in_array($state, ['pending', 'waiting']),
+                    'success' => fn ($state) => in_array($state, ['success', 'confirmed']),
                     'danger'  => fn ($state) => in_array($state, ['failed', 'canceled']),
                 ])
                 ->sortable(),

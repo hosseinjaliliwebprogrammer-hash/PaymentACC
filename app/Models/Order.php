@@ -25,6 +25,7 @@ class Order extends Model
         'description',
         'status',
         'tracking_code',
+        'response',
         'payment_instructions',  // ✅ JSON دستور پرداخت
 
         // 🔽🔽 فیلدهای تحویل سفارش (جدید) 🔽🔽
@@ -40,6 +41,7 @@ class Order extends Model
     protected $casts = [
         'amount' => 'decimal:2',
         'payment_instructions' => 'array', // 👈 آرایه JSON برای دستور پرداخت
+        'response' => 'array',
     ];
 
     /**

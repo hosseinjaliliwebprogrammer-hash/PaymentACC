@@ -24,13 +24,20 @@ class NowPaymentsIpnController extends Controller
         $data = $request->all();
 
         $now = new NowPaymentsService();
+        $order = Order::query()->find($data['order_id']);
+
         if ($now->verifySignature($data, $signature)) {
 
-            if ($data['status'] == 'confirmed') {
-                $order = Order::query()->find($data['order_id']);
-                $this->sendEmail($order);
+            $order->status = strtolower($data['payment_status']);
+            $order->response = $data;
+            $order->save();
+        }
 
-            }
+        if ($order->response && isset($data['payment_status']) && $data['payment_status'] == 'confirmed') {
+            $order->status = 'success';
+            $order->response = $data;
+            $order->save();
+            $this->sendEmail($order);
         }
 
         return response()->json(['status' => 'success']);
