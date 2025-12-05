@@ -13,5 +13,3 @@ use App\Http\Controllers\NowPaymentsIpnController;
 |
 */
 
-Route::post('/nowpayments/ipn', [NowPaymentsIpnController::class, 'handle'])
-    ->name('nowpayments.ipn');

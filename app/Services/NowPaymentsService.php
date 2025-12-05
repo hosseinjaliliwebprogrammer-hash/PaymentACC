@@ -97,4 +97,13 @@ class NowPaymentsService
 
         return $response->json();
     }
+
+    public function verifySignature($data, $signature)
+    {
+        $secretKey = config('services.nowpayments.ipn_secret');
+        $payload = json_encode($data);
+        $calculatedSignature = hash_hmac('sha512', $payload, $secretKey);
+
+        return $calculatedSignature === $signature;
+    }
 }
