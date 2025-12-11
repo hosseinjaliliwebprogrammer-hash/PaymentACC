@@ -297,6 +297,7 @@ class OrderResource extends Resource
                             ->send(new OrderDeliveryMail($record));
 
                         $record->status = 'completed';
+                        $record->expire_at = \Carbon\Carbon::now()->addMonth();
                         $record->save();
 
                         Notification::make()

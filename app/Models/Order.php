@@ -27,6 +27,8 @@ class Order extends Model
         'tracking_code',
         'response',
         'payment_instructions',  // ✅ JSON دستور پرداخت
+        'expire_at',
+        'send_at',
 
         // 🔽🔽 فیلدهای تحویل سفارش (جدید) 🔽🔽
         'delivery_username',
