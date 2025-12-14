@@ -221,6 +221,9 @@ class OrderResource extends Resource
 
             ->actions([
 
+                Tables\Actions\ViewAction::make()
+                    ->visible(fn () => auth()->user()?->is_admin),
+
                 Tables\Actions\Action::make('summary')
                     ->label('View Summary')
                     ->icon('heroicon-o-clipboard-document-check')
@@ -325,6 +328,7 @@ class OrderResource extends Resource
             'index'  => Pages\ListOrders::route('/'),
             'create' => Pages\CreateOrder::route('/create'),
             'edit'   => Pages\EditOrder::route('/{record}/edit'),
+            'view'   => Pages\ViewOrder::route('/{record}'),
         ];
     }
 

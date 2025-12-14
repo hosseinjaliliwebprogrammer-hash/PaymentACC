@@ -28,6 +28,10 @@ class PaygateReturnController extends Controller
             if(!$order){
                 return redirect()->route('payment.failed');
             }
+            $data = $request->all();
+            $order->status = 'paid';
+            $order->response = $data;
+            $order->save();
 
             $email = $order->email;
 

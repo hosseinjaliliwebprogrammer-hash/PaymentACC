@@ -44,6 +44,14 @@ class ViewOrder extends ViewRecord
                     ->html()
                     ->columnSpanFull(),
             ])->columns(2),
+
+            Section::make('Return Information')->schema([
+                ...collect($this->record->response)->map(function ($value, $key) {
+                    return TextEntry::make($key)
+                        ->label(ucwords(str_replace('_', ' ', $key).": "))
+                        ->default('  '.$value);
+                })->toArray(),
+            ]),
         ]);
     }
 }
