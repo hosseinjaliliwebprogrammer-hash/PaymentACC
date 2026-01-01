@@ -1,8 +1,8 @@
 <x-filament-panels::page>
 
     {{-- 🔵 لایه لودینگ روی کل صفحه --}}
-    <div 
-        wire:loading 
+    <div
+        wire:loading
         wire:target="submit"
         class="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center"
     >
@@ -35,8 +35,8 @@
                         <div class="p-4 rounded-xl text-white text-sm shadow-md"
                              style="background: #01a401 !important; font-size:14px; padding: 20px; line-height: 1.6;">
                             <strong>This email already exists.</strong><br>
-                            You can 
-                            <a href="/app/login" class="underline font-semibold">log in here</a> or 
+                            You can
+                            <a href="/app/login" class="underline font-semibold">log in here</a> or
                             <a href="/app/password-reset/request" class="underline font-semibold">reset your password</a>.
                         </div>
                     @endif
@@ -49,8 +49,8 @@
             @if($errors->has('email'))
                 <div class="mt-4 p-4 rounded-xl bg-green-600/80 border border-green-500 text-white text-sm shadow-md">
                     <strong>This email already exists.</strong><br>
-                    You can 
-                    <a href="/app/login" class="underline font-semibold">log in here</a> or 
+                    You can
+                    <a href="/app/login" class="underline font-semibold">log in here</a> or
                     <a href="/app/password-reset/request" class="underline font-semibold">reset your password</a>.
                 </div>
             @endif
@@ -69,8 +69,8 @@
 
         {{-- ====================== مرحله ۲ ====================== --}}
         @if($step === 2)
-            <div 
-                x-data 
+            <div
+                x-data
                 x-transition:enter="transition ease-out duration-300"
                 x-transition:enter-start="opacity-0 scale-95"
                 x-transition:enter-end="opacity-100 scale-100"
@@ -103,7 +103,6 @@
 
                         <p class="text-xs text-gray-400">Recommended for global users</p>
                     </label>
-
                     {{-- Crypto --}}
                     <label
                         for="nowpayOption"
@@ -129,6 +128,7 @@
                     </label>
 
                     {{-- Paygate --}}
+                    <!--
                     <label
                         for="paygateOption"
                         class="flex items-center justify-between border rounded-2xl px-6 py-4 cursor-pointer transition-all duration-200
@@ -150,7 +150,29 @@
 
                         <p class="text-xs text-gray-400">Supports Visa, MasterCard & Crypto</p>
                     </label>
+                    -->
 
+                    {{-- Card2Crypto --}}
+                    <label
+                        for="card2cryptoOption"
+                        class="flex items-center justify-between border rounded-2xl px-6 py-4 cursor-pointer transition-all duration-200
+                               {{ ($data['payment_method'] ?? null) === 'card2crypto'
+                                    ? 'border-primary-500 bg-gray-800/60 shadow-lg scale-[1.02]'
+                                    : 'border-gray-700 hover:border-primary-400 hover:bg-gray-800/40' }}">
+                        <div class="flex items-center gap-4">
+
+                            <input type="radio"
+                                   id="card2cryptoOption"
+                                   wire:model="data.payment_method"
+                                   value="card2crypto"
+                                   class="text-primary-500 focus:ring-primary-500">
+
+                            <img src="https://upload.wikimedia.org/wikipedia/commons/0/04/Visa.svg"
+                                 alt="Card2crypto" class="h-8">
+                        </div>
+
+                        <p class="text-xs text-gray-400">Supports Visa, MasterCard & Crypto<</p>
+                    </label>
                 </div>
 
                 <div class="flex justify-between items-center pt-6">

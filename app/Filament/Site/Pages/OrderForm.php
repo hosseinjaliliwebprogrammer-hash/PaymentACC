@@ -2,12 +2,14 @@
 
 namespace App\Filament\Site\Pages;
 
+use App\Models\DiscountCode;
 use App\Models\Gateway;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\User;
 use App\Services\GatewaySelector;
 use App\Services\NowPaymentsService;
+use Carbon\Carbon;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Forms\Components\Select;
@@ -17,7 +19,10 @@ use Filament\Forms\Get;
 use Filament\Forms\Set;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Firebase\JWT\JWT;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
@@ -92,6 +97,10 @@ class OrderForm extends Page implements Forms\Contracts\HasForms
 
     public function mount(): void
     {
+        if(request()->input('discount')) {
+            Cache::put('discount_code', request()->input('discount'), 3600);
+        }
+
         $this->captchaNumber = random_int(10000, 99999);
 
         $this->form->fill([
@@ -130,12 +139,28 @@ class OrderForm extends Page implements Forms\Contracts\HasForms
 
             Select::make('product_id')
                 ->label('Product')
-                ->options(fn () => Product::where('is_active', true)->pluck('name', 'id'))
+                ->options(function () {
+                    $discountCode = Cache::get('discount_code');
+
+                    // اگر کد تخفیف موجود بود، بررسی می‌کنیم که محصولی برای اون کد وجود داره یا نه
+                    $products = $discountCode
+                        ? Product::whereHas('discountCodes', function($query) use ($discountCode) {
+                            $query->where('code', $discountCode);
+                        })->pluck('name', 'id')
+                        : collect(); // در صورتی که کد تخفیف نباشه یک مجموعه خالی می‌سازیم
+
+                    // اگر محصولی برای کد تخفیف پیدا نشد، به صورت پیش‌فرض محصولات فعال رو بارگذاری می‌کنیم
+                    if ($products->isEmpty()) {
+                        $products = Product::where('is_active', true)->pluck('name', 'id');
+                    }
+
+                    return $products;
+                })
                 ->searchable()
                 ->preload()
                 ->live()
                 ->afterStateUpdated(fn ($state, Set $set) =>
-                    $set('amount', $state ? (float) (Product::find($state)?->price ?? 0) : null)
+                $set('amount', $state ? (float) Product::find($state)->getDiscountedPrice(Cache::get('discount_code')) : null)
                 ),
 
             TextInput::make('amount')
@@ -162,7 +187,7 @@ class OrderForm extends Page implements Forms\Contracts\HasForms
             Forms\Components\View::make('filament.site.components.payment-info')
                 ->visible(fn () => $this->step === 1),
         ])
-        ->statePath('data');
+            ->statePath('data');
     }
 
     public function submit(): mixed
@@ -176,6 +201,7 @@ class OrderForm extends Page implements Forms\Contracts\HasForms
         $data = $this->form->getState();
         $isGuest = ! Auth::check();
 
+        $discount = Cache::get('discount_code');
         $requiredFields = ['product_id', 'amount', 'payment_method'];
         if ($isGuest) {
             $requiredFields = array_merge($requiredFields, ['name', 'email']);
@@ -197,6 +223,9 @@ class OrderForm extends Page implements Forms\Contracts\HasForms
 
         $product = Product::findOrFail($data['product_id']);
         $amount  = (float) $product->price;
+        if($product && $discount)
+            $amount = $product->getDiscountedPrice($discount);
+
 
         // create/login user
         $user = Auth::user();
@@ -237,6 +266,7 @@ class OrderForm extends Page implements Forms\Contracts\HasForms
                 'status'        => 'pending',
                 'tracking_code' => $tracking,
                 'service'       => $product->name,
+                'discount_code' => $discount
             ]);
 
             // build domain-based URLs
@@ -332,8 +362,66 @@ class OrderForm extends Page implements Forms\Contracts\HasForms
                 'status'        => 'pending',
                 'tracking_code' => $tracking,
                 'service'       => $product->name,
+                'discount_code' => $discount,
                 'payment_instructions' => [
                     'provider'    => 'paygate',
+                    'wallet'      => $wallet,
+                    'address_in'  => $addressIn,
+                    'payment_url' => $paymentUrl,
+                ],
+            ]);
+
+            return redirect()->away($paymentUrl);
+        }
+        if ($data['payment_method'] === 'card2crypto') {
+            $wallet          = env('CARD2CRYPTO_RECEIVE_ADDRESS');
+            $tracking        = Str::ulid()->toBase32();
+            $callback        = route('card2crypto.return',['tracking' => $tracking]);
+            $amountFormatted = number_format($amount, 2, '.', '');
+
+            // استفاده از BASE URL از .env
+            $apiBase = rtrim(env('CARD2CRYPTO_BASE_URL'), '/');
+
+            $walletResponse = Http::get($apiBase . '/control/wallet.php', [
+                'address'  => $wallet,
+                'callback' => $callback,
+            ]);
+
+            $walletData = $walletResponse->json();
+
+            if (! isset($walletData['address_in'])) {
+                throw ValidationException::withMessages([
+                    'payment_method' => 'Card2crypto API error.',
+                ]);
+            }
+
+            $addressIn = $walletData['address_in'];
+
+            // استفاده از دامنه و provider از .env
+            $checkoutDomain = env('CARD2CRYPTO_CHECKOUT_DOMAIN', 'checkout.paygate.to');
+            $provider       = env('CARD2CRYPTO_PROVIDER', 'moonpay');
+
+            $paymentUrl = sprintf(
+                'https://%s/pay.php?address=%s&amount=%s&email=%s&currency=USD&domain=%s',
+                $checkoutDomain,
+                $addressIn,
+                $amountFormatted,
+                $user->email,
+                $checkoutDomain
+            );
+
+            Order::create([
+                'user_id'       => $user->id,
+                'product_id'    => $product->id,
+                'name'          => $user->name,
+                'email'         => $user->email,
+                'amount'        => $amount,
+                'status'        => 'pending',
+                'tracking_code' => $tracking,
+                'service'       => $product->name,
+                'discount_code' => $discount,
+                'payment_instructions' => [
+                    'provider'    => 'card2crypto',
                     'wallet'      => $wallet,
                     'address_in'  => $addressIn,
                     'payment_url' => $paymentUrl,
@@ -348,7 +436,8 @@ class OrderForm extends Page implements Forms\Contracts\HasForms
         | PAYPAL (unchanged)
         |--------------------------------------------------------------------------
         */
-        $order = DB::transaction(function () use ($data, $user, $product, $amount) {
+        $link = DB::transaction(function () use ($data, $user, $product, $amount, $discount) {
+
 
             $gateway = Gateway::where('is_active', true)
                 ->whereRaw('(limit_amount - used_amount) >= ?', [$amount])
@@ -364,7 +453,7 @@ class OrderForm extends Page implements Forms\Contracts\HasForms
             $gateway->increment('used_amount', $amount);
 
             $tracking = Str::ulid()->toBase32();
-
+/*
             $emailTemplate = GatewaySelector::generateEmailTemplate($gateway, (object) [
                 'name'          => $user->name,
                 'amount'        => $amount,
@@ -372,6 +461,7 @@ class OrderForm extends Page implements Forms\Contracts\HasForms
                 'tracking_code' => $tracking,
                 'tracking_url'  => url("/app/orders/{$tracking}/summary"),
             ]);
+*/
 
             $order = Order::create([
                 'user_id'       => $user->id,
@@ -383,15 +473,35 @@ class OrderForm extends Page implements Forms\Contracts\HasForms
                 'status'        => 'pending',
                 'tracking_code' => $tracking,
                 'service'       => $product->name,
+                'discount_code' => $discount,
                 'payment_instructions' => [
                     'provider'   => 'paypal',
                     'amount'     => $amount,
                     'email'      => $gateway->email,
                     'url'        => $gateway->link,
-                    'email_body' => $emailTemplate,
                 ],
             ]);
 
+            $secretKey = env('APP_KEY'); // You can store this key in `.env`
+            $payload = [
+                'order_id' => $order->id,
+                'user_id' => $order->user->id,
+                'amount' => $amount,
+                'product_id' => $product->id,
+                'title' => $product->name,
+                'description' => $product->description,
+                'product_invoice' => $product->sku,
+                'tracking'   => $tracking,
+                'email' => $user->email,
+                'expires_at' => Carbon::now()->addDay(7)->timestamp, // Expiry date (7 day)
+                'iat' => Carbon::now()->timestamp, // Token issue time
+            ];
+
+
+            $jwt = JWT::encode($payload, $secretKey, 'HS256');  // 'HS256' is the default algorithm, but you should explicitly specify it.
+            $link = $gateway->link . "/api/paypal?token={$jwt}";
+
+            /*
             Mail::send('emails.paypal', [
                 'name'          => $user->name,
                 'amount'        => $amount,
@@ -403,12 +513,12 @@ class OrderForm extends Page implements Forms\Contracts\HasForms
             ], function ($msg) use ($user) {
                 $msg->to($user->email)->subject('Your PayPal Payment Instructions');
             });
-
-            return $order;
+            */
+            return $link;
         });
 
         Notification::make()->title('Order created')->success()->send();
 
-        return redirect()->to("/app/orders/{$order->tracking_code}/summary");
+        return redirect()->to($link);
     }
 }

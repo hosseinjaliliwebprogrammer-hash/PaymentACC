@@ -7,6 +7,7 @@ use App\Http\Controllers\PublicOrderReceiptController;
 use App\Http\Controllers\PaygateReturnController;
 use App\Http\Controllers\PaygateWebhookController;
 use App\Http\Controllers\NowPaymentsIpnController;
+use App\Http\Controllers\PaypalController;
 use App\Models\User;
 use App\Filament\Site\Pages\PaymentProcessing;
 
@@ -61,11 +62,33 @@ Route::any('/paygate/webhook', [PaygateWebhookController::class, 'handle'])
 Route::get('/paygate/return', [PaygateReturnController::class, 'index'])
     ->name('paygate.return');
 
+
+
+
+/*
+|--------------------------------------------------------------------------
+| 💳 card2crypto.org Payment Routes
+|--------------------------------------------------------------------------
+*/
+Route::any('/card2crypto/webhook', [Card2cryptoWebhookController::class, 'handle'])
+    ->name('card2crypto.webhook');
+
+Route::get('/card2crypto/return', [Card2cryptoReturnController::class, 'index'])
+    ->name('card2crypto.return');
+
+
 /*
 |--------------------------------------------------------------------------
 | 💳 Payment Result Pages
 |--------------------------------------------------------------------------
 */
+
+Route::any('/paypal/success', [PaypalController::class, 'success'])
+    ->name('paypal.success');
+Route::any('/paypal/failed', [PaypalController::class, 'cancel'])
+    ->name('paypal.failed');
+
+
 Route::get('/payment/success', fn () => view('payment.success'))
     ->name('payment.success');
 
