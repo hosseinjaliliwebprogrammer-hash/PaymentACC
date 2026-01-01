@@ -35,6 +35,7 @@ class Order extends Model
         'delivery_password',
         'delivery_server',
         'delivery_notes',
+        'discount_code'
     ];
 
     /**
